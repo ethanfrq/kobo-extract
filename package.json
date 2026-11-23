@@ -1,0 +1,22 @@
+{
+  "name": "kobo-extract",
+  "version": "1.0.0",
+  "description": "Liste les livres d'une liseuse Kobo, détecte les DRM (sans jamais les contourner) et extrait en PDF les livres libres.",
+  "type": "module",
+  "main": "index.js",
+  "bin": {
+    "kobo-extract": "./index.js"
+  },
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "start": "node --no-warnings index.js",
+    "fausse-kobo": "node --no-warnings scripts/fausse-kobo.js",
+    "demo": "node --no-warnings scripts/fausse-kobo.js && node --no-warnings index.js --kobo ./fausse-kobo"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "adm-zip": "^0.6.1"
+  }
+}
