@@ -57,6 +57,7 @@ npm start -- --fichier ~/Downloads/x.epub  # analyse un fichier hors liseuse
 npm start -- --sortie ~/Documents/livres   # change le dossier de sortie
 npm start -- --kobo /chemin/vers/kobo      # indique la liseuse à la main
 npm start -- --tous --delai 900            # laisse 15 min max à Calibre par livre
+npm start -- --sobre                       # sans animations
 npm start -- -h                            # aide
 ```
 
@@ -112,7 +113,21 @@ Le format est identifié par les **premiers octets** du fichier : `PK\x03\x04` p
 - `EBX_HANDLER` ou `ADEPT` → DRM Adobe ;
 - sinon → protégé par mot de passe.
 
-Pour couper les couleurs : `NO_COLOR=1 npm start`.
+### Effets du terminal
+
+Au lancement, dans un vrai terminal, quatre effets s’enchaînent en 4 à 5 secondes :
+
+1. une **pluie de caractères façon Matrix** ;
+2. la **bannière en « glitch »** : elle se brouille puis se stabilise ;
+3. un **dégradé vert → cyan** sur la bannière ;
+4. une **séquence de démarrage** avec des barres de progression. Elle affiche de vraies informations : version de Node, présence ou absence de Calibre.
+
+Pour couper ces effets :
+
+- `--sobre` : plus d’animations, une simple ligne d’en-tête ;
+- `NO_COLOR=1 npm start` : ni couleurs ni animations.
+
+Les animations se coupent aussi toutes seules quand la sortie n’est pas un terminal (fichier, tuyau `|`). Un Ctrl+C pendant l’intro quitte proprement et réaffiche le curseur.
 
 ## En cas de problème
 

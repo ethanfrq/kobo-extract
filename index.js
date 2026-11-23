@@ -3,11 +3,11 @@
 
 import { parseArgs } from 'node:util';
 import { createInterface } from 'node:readline/promises';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { basename, resolve, extname } from 'node:path';
 import { trouverKobo, estUneKobo, listerLivres } from './src/kobo.js';
 import { analyser, messagePour, MESSAGE_LEGAL } from './src/drm.js';
-import { extraire, AIDE_CALIBRE, DELAI_PAR_DEFAUT, Interruption } from './src/convertir.js';
+import { extraire, trouverCalibre, AIDE_CALIBRE, DELAI_PAR_DEFAUT, Interruption } from './src/convertir.js';
 import * as s from './src/style.js';
 
 const AIDE = `
@@ -22,6 +22,7 @@ ${s.gras('OPTIONS')}
   --fichier <fichier>  analyser un .epub (ou un .acsm) hors liseuse
   --sortie <dossier>   dossier de destination (défaut : ./extraits)
   --delai <secondes>   temps max d’une conversion Calibre (défaut : ${DELAI_PAR_DEFAUT})
+  --sobre              sans animations (ni Matrix, ni glitch, ni démarrage)
   -h, --help          afficher cette aide
 
 ${s.gras('LÉGENDE')}
@@ -33,6 +34,8 @@ ${s.gras('EXEMPLES')}
   npm start -- --livre 3 --sortie ~/Documents/livres
   npm start -- --fichier ~/Downloads/mon-livre.epub
 `;
+
+const VERSION = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')).version;
 
 const ICONES = { libre: '✅', verrouille: '🔒', 'non-telecharge': '☁️ ', inconnu: '❓' };
 const COULEURS = { libre: s.vert, verrouille: s.rouge, 'non-telecharge': s.jaune, inconnu: s.magenta };
@@ -48,6 +51,7 @@ function lireOptions() {
         fichier: { type: 'string' },
         sortie: { type: 'string', default: './extraits' },
         delai: { type: 'string', default: String(DELAI_PAR_DEFAUT) },
+        sobre: { type: 'boolean', default: false },
         help: { type: 'boolean', short: 'h', default: false },
       },
     }).values;
@@ -102,6 +106,20 @@ function afficherListe(livres) {
       `${s.jaune(`${compte('non-telecharge')} non téléchargé(s)`)}` +
       (compte('inconnu') ? `, ${s.magenta(`${compte('inconnu')} inconnu(s)`)}` : ''),
   );
+}
+
+// Modules affichés dans la séquence de démarrage (avec de vraies informations).
+function modulesDemarrage() {
+  const calibre = trouverCalibre();
+  return [
+    { nom: 'noyau kobo-extract', detail: `v${VERSION} · Node ${process.versions.node}` },
+    { nom: 'pilote SQLite', detail: 'node:sqlite · readOnly' },
+    { nom: 'décodeur EPUB/ZIP', detail: 'adm-zip' },
+    { nom: 'détecteur DRM', detail: 'Adobe · LCP · Kobo · PDF — sans déchiffrement' },
+    calibre
+      ? { nom: 'pont Calibre', detail: 'ebook-convert trouvé' }
+      : { nom: 'pont Calibre', detail: 'ebook-convert absent → EPUB seulement', ok: false },
+  ];
 }
 
 // Réglages communs à toutes les extractions (remplis dans main).
@@ -228,8 +246,12 @@ async function traiterFichier(cheminDonne, sortie) {
 async function main() {
   const options = lireOptions();
   if (!options) return;
-  await s.banniere();
-  if (options.help) return console.log(AIDE);
+  s.configurer({ sobre: options.sobre });
+  if (options.help) {
+    s.entete();
+    return console.log(AIDE);
+  }
+  await s.intro(modulesDemarrage());
 
   const delai = Number(options.delai);
   if (!Number.isFinite(delai) || delai <= 0) {
