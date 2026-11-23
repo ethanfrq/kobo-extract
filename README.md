@@ -6,6 +6,8 @@ Petit outil en ligne de commande qui :
 2. liste ses livres et détecte lesquels sont protégés par une **DRM** ;
 3. extrait en **PDF** uniquement les livres **libres**.
 
+> 📘 **Première utilisation ?** Lisez le [guide utilisateur](GUIDE.md) : deux tutoriels pas à pas, des recettes pour chaque tâche et une FAQ.
+
 ```
  _  __ ___  ___  ___        _____  _______ ___    _    ___ _____
 | |/ // _ \| _ )/ _ \  ___ | __\ \/ /_   _| _ \  /_\  / __|_   _|
