@@ -25,10 +25,14 @@ export const AIDE_CALIBRE = [
 ];
 
 // Erreur spéciale : l'utilisateur a fait Ctrl+C pendant une conversion.
+// Signaux qui demandent l'arrêt : Ctrl+C (SIGINT), fermeture du terminal (SIGHUP), kill (SIGTERM).
+export const SIGNAUX_ARRET = ['SIGINT', 'SIGHUP', 'SIGTERM'];
+
 export class Interruption extends Error {
-  constructor() {
-    super('interrompu par l’utilisateur (Ctrl+C)');
+  constructor(signal = 'SIGINT') {
+    super(`interrompu (${signal})`);
     this.name = 'Interruption';
+    this.signal = signal;
   }
 }
 
@@ -48,9 +52,10 @@ export function nomPropre(texte) {
     .replace(/[\\/:*?"<>|\x00-\x1f]/g, '_')
     .replace(/\s+/g, ' ')
     .replace(/^[\s.]+|[\s.]+$/g, '')
-    .slice(0, 120)
     .trim();
-  return propre || 'livre';
+  // Coupe à 120 caractères "visibles" (graphèmes) : jamais au milieu d'un emoji ou d'un accent.
+  const morceaux = [...new Intl.Segmenter('fr', { granularity: 'grapheme' }).segment(propre)].map((m) => m.segment);
+  return morceaux.slice(0, 120).join('').trim() || 'livre';
 }
 
 // Renvoie un chemin qui n'existe pas encore : "Titre.pdf", "Titre (2).pdf", ...
@@ -112,17 +117,21 @@ export function lancer(programme, args, delaiMs) {
       setTimeout(() => tuerGroupe(enfant, 'SIGKILL'), 3000).unref(); // …puis de force
     };
     const minuteur = setTimeout(() => arreter('delai'), delaiMs);
-    const surCtrlC = () => arreter('interruption');
-    process.on('SIGINT', surCtrlC);
+    let signalRecu = null;
+    const surSignal = (signal) => {
+      signalRecu = signal;
+      arreter('interruption');
+    };
+    for (const s of SIGNAUX_ARRET) process.on(s, surSignal);
 
     const terminer = (resultat) => {
       if (fini) return;
       fini = true;
       clearTimeout(minuteur);
-      process.off('SIGINT', surCtrlC);
+      for (const s of SIGNAUX_ARRET) process.off(s, surSignal);
       if (raison) tuerGroupe(enfant, 'SIGKILL'); // achève les sous-processus restants
       enfant.stderr.destroy();
-      resoudre({ ...resultat, raison, stderr: stderr.trim() });
+      resoudre({ ...resultat, raison, signal: signalRecu, stderr: stderr.trim() });
     };
     enfant.once('error', (e) => terminer({ code: null, erreur: e.message }));
     // "exit" et non "close" : "close" attend que TOUS les processus aient lâché le tuyau stderr,
@@ -149,7 +158,7 @@ async function convertirEnPdf(calibre, epub, dossier, base, delaiSecondes) {
 
     if (resultat.raison === 'interruption') {
       supprimer(pdf); // pas de PDF à moitié écrit
-      throw new Interruption();
+      throw new Interruption(resultat.signal ?? 'SIGINT');
     }
     if (resultat.raison === 'delai') {
       supprimer(pdf);

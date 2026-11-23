@@ -46,11 +46,29 @@ function decoder(texte) {
   }
 }
 
+// Retire les caractères de contrôle d'un texte venant de la liseuse (titre, auteur, nom de fichier).
+// Sinon un titre piégé pourrait envoyer des ordres au terminal (effacer l'écran, changer le titre…).
+export function sansControle(texte) {
+  return String(texte ?? '').replace(/[\u0000-\u001f\u007f-\u009f]/g, '');
+}
+
 // Convertit un ContentID de la base en chemin réel sur l'ordinateur.
 export function cheminDepuisContentId(racine, contentId) {
   if (contentId.startsWith(PREFIXE_PERSO)) {
     const relatif = decoder(contentId.slice(PREFIXE_PERSO.length)); // %20 → espace
     return { chemin: join(racine, ...relatif.split('/')), origine: 'perso' };
+  }
+  if (contentId.startsWith('file://')) {
+    // Autre emplacement de la liseuse, le plus souvent la carte microSD (file:///mnt/sd/…) :
+    // elle n'est pas dans le dossier de la Kobo monté sur l'ordinateur.
+    const carteSD = contentId.startsWith('file:///mnt/sd/');
+    return {
+      chemin: null,
+      origine: carteSD ? 'carte SD' : 'autre emplacement',
+      raisonSansChemin: carteSD
+        ? 'sur la carte microSD : insérez la carte dans l’ordinateur, puis utilisez --fichier'
+        : `emplacement non accessible (${decoder(contentId)})`,
+    };
   }
   return { chemin: join(racine, '.kobo', 'kepub', contentId), origine: 'boutique' };
 }
@@ -144,19 +162,20 @@ function lireLivres(db, racine) {
   const livres = [];
   for (const ligne of lignes) {
     const id = String(ligne.ContentID);
-    const { chemin, origine } = cheminDepuisContentId(racine, id);
+    const { chemin, origine, raisonSansChemin } = cheminDepuisContentId(racine, id);
     // Sécurité : on refuse tout chemin qui sortirait de la liseuse (ex. "../../").
-    if (!resolve(chemin).startsWith(racineAbsolue)) {
+    if (chemin && !resolve(chemin).startsWith(racineAbsolue)) {
       alerte(`Chemin suspect ignoré : ${id}`);
       continue;
     }
     livres.push({
       id,
-      titre: ligne.Title || basename(chemin),
-      auteur: ligne.Attribution || '',
+      titre: sansControle(ligne.Title) || sansControle(basename(chemin ?? id)),
+      auteur: sansControle(ligne.Attribution),
       mime: ligne.MimeType || '',
       chemin,
       origine,
+      raisonSansChemin,
       indexe: true,
       dansContentKeys: estChiffre(id),
     });
@@ -186,13 +205,13 @@ function parcourir(dossier, trouves = [], profondeur = 0) {
 }
 
 function titreDepuisFichier(chemin) {
-  return basename(chemin).replace(/(\.kepub)?\.(epub|pdf)$/i, '');
+  return sansControle(basename(chemin).replace(/(\.kepub)?\.(epub|pdf)$/i, ''));
 }
 
 export function listerLivres(racine) {
   const livres = lireBase(racine);
 
-  const connus = new Set(livres.map((l) => cle(l.chemin)));
+  const connus = new Set(livres.filter((l) => l.chemin).map((l) => cle(l.chemin)));
   const fichiers = parcourir(racine);
   let ajoutes = 0;
   for (const chemin of fichiers) {

@@ -5,8 +5,8 @@ import { parseArgs } from 'node:util';
 import { createInterface } from 'node:readline/promises';
 import { existsSync, readFileSync } from 'node:fs';
 import { basename, resolve, extname, join } from 'node:path';
-import { homedir } from 'node:os';
-import { trouverKobo, estUneKobo, listerLivres } from './src/kobo.js';
+import { homedir, constants as osConstants } from 'node:os';
+import { trouverKobo, estUneKobo, listerLivres, sansControle } from './src/kobo.js';
 import { analyser, messagePour, MESSAGE_LEGAL } from './src/drm.js';
 import { extraire, trouverCalibre, AIDE_CALIBRE, DELAI_PAR_DEFAUT, Interruption } from './src/convertir.js';
 import * as s from './src/style.js';
@@ -146,7 +146,12 @@ async function extraireLivre(livre, sortie) {
   try {
     const resultat = await extraire(livre, sortie, reglages);
     for (const fichier of resultat.fichiers) s.ok(`Écrit : ${s.gras(fichier)}`);
-    if (resultat.calibreAbsent) for (const ligne of AIDE_CALIBRE) s.alerte(ligne);
+    if (resultat.calibreAbsent) {
+      // Une seule fois par lancement, pas à chaque livre.
+      if (!reglages.calibreSignale) for (const ligne of AIDE_CALIBRE) s.alerte(ligne);
+      else s.alerte('Calibre introuvable : EPUB gardé (voir plus haut).');
+      reglages.calibreSignale = true;
+    }
     if (resultat.erreurConversion) {
       s.erreur(`La conversion a échoué : ${resultat.erreurConversion}`);
       process.exitCode = 1;
@@ -240,7 +245,7 @@ async function traiterFichier(cheminDonne, sortie) {
   }
   const livre = {
     numero: 1,
-    titre: basename(chemin).replace(/(\.kepub)?\.(epub|pdf)$/i, ''),
+    titre: sansControle(basename(chemin).replace(/(\.kepub)?\.(epub|pdf)$/i, '')),
     auteur: '',
     chemin,
     origine: 'fichier',
@@ -301,8 +306,8 @@ async function main() {
 main().catch((e) => {
   if (e instanceof Interruption) {
     console.log();
-    s.alerte('Interrompu (Ctrl+C) : conversion arrêtée, aucun fichier partiel laissé.');
-    process.exitCode = 130; // code standard d'une interruption par Ctrl+C
+    s.alerte(`Interrompu (${e.signal === 'SIGINT' ? 'Ctrl+C' : e.signal}) : conversion arrêtée, aucun fichier partiel laissé.`);
+    process.exitCode = 128 + (osConstants.signals[e.signal] ?? 2); // 130 pour Ctrl+C
     return;
   }
   s.erreur(`Erreur inattendue : ${e.message}`);

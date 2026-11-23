@@ -84,18 +84,36 @@ function premierChapitre(zip) {
   return zip.getEntries().find((e) => /\.x?html?$/i.test(e.entryName)) ?? null;
 }
 
-// Un chapitre lisible commence par "<" (après un éventuel BOM / espaces) et est de l'UTF-8 valide.
+// Un chapitre lisible est du HTML : il commence par "<" (après un éventuel BOM ou des espaces).
+// Encodages acceptés :
+//  - UTF-8 valide (le cas normal) ;
+//  - UTF-16, reconnu à sa signature (BOM FF FE ou FE FF) ;
+//  - un autre encodage déclaré par le chapitre lui-même (<?xml … encoding="ISO-8859-1"?>),
+//    fréquent dans les vieux EPUB. Des octets chiffrés ne forment jamais une telle déclaration.
 export function estLisible(octets) {
+  const decoder = (encodage, donnees) => {
+    try {
+      return new TextDecoder(encodage, { fatal: true }).decode(donnees);
+    } catch {
+      return null;
+    }
+  };
+  const commenceParChevron = (texte) => texte !== null && texte.replace(/^[\uFEFF\s]+/, '').startsWith('<');
+
+  if (octets[0] === 0xff && octets[1] === 0xfe) return commenceParChevron(decoder('utf-16le', octets.subarray(2)));
+  if (octets[0] === 0xfe && octets[1] === 0xff) return commenceParChevron(decoder('utf-16be', octets.subarray(2)));
+
   let i = 0;
   if (octets[0] === 0xef && octets[1] === 0xbb && octets[2] === 0xbf) i = 3; // BOM UTF-8
   while (i < octets.length && [0x20, 0x09, 0x0a, 0x0d].includes(octets[i])) i++;
   if (octets[i] !== 0x3c) return false; // "<"
-  try {
-    new TextDecoder('utf-8', { fatal: true }).decode(octets);
-    return true;
-  } catch {
-    return false;
-  }
+
+  if (decoder('utf-8', octets) !== null) return true;
+
+  // Pas de l'UTF-8 : accepté seulement si le chapitre déclare un autre encodage.
+  const entete = octets.subarray(i, i + 200).toString('latin1');
+  const declaration = entete.match(/^<\?xml[^>]*encoding\s*=\s*["']([\w.:-]+)["']/i);
+  return Boolean(declaration) && !/^utf-?8$/i.test(declaration[1]);
 }
 
 function analyserEpub(chemin, dansContentKeys) {
@@ -195,6 +213,9 @@ function analyserPdf(chemin) {
 // Un fichier illisible (permission, liseuse débranchée, secteur abîmé…) ne doit pas
 // faire planter l'analyse de toute la bibliothèque : il est simplement marqué "inconnu".
 export function analyser(livre) {
+  if (!livre.chemin) {
+    return { statut: 'inconnu', format: null, drm: null, raison: livre.raisonSansChemin ?? 'emplacement inconnu' };
+  }
   try {
     return analyserFichier(livre);
   } catch (e) {

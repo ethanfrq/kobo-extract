@@ -57,14 +57,18 @@ async function animation(fonction) {
 // ---------- Traces et messages ----------
 
 // Ligne de trace : │ [outil]   détail
+// Les textes affichés peuvent venir de la liseuse (noms de fichiers) : on retire les caractères
+// de contrôle pour qu'aucun ne soit interprété comme un ordre par le terminal.
+const propre = (texte) => String(texte).replace(/[\u0000-\u001f\u007f-\u009f]/g, '');
+
 export function trace(outil, texte) {
-  console.log(`${gris('│')} ${cyan(`[${outil}]`.padEnd(10))} ${gris(texte)}`);
+  console.log(`${gris('│')} ${cyan(`[${outil}]`.padEnd(10))} ${gris(propre(texte))}`);
 }
 
 // Affiche une commande comme si on la tapait dans un shell.
 export function commande(programme, args = []) {
   const citer = (a) => (/[\s"'$\\]/.test(a) ? JSON.stringify(a) : a);
-  console.log(`${vertVif('$')} ${vert(programme)} ${args.map(citer).join(' ')}`);
+  console.log(`${vertVif('$')} ${vert(programme)} ${args.map((a) => citer(propre(a))).join(' ')}`);
 }
 
 export const ok = (t) => console.log(`${vertVif('[+]')} ${t}`);

@@ -42,11 +42,14 @@ Ce tutoriel vous fait découvrir kobo-extract avec une **fausse liseuse** créé
 ### Étape 1 — Ouvrir le Terminal dans le bon dossier
 
 1. Ouvrez l’application **Terminal**. Pour la trouver : `Cmd` + `Espace`, tapez « Terminal », puis `Entrée`.
-2. Allez dans le dossier du programme :
+2. Récupérez le programme (une seule fois), puis entrez dans son dossier :
 
    ```sh
-   cd ~/dev/kobo-extract
+   git clone https://github.com/ethanfrq/kobo-extract.git
+   cd kobo-extract
    ```
+
+   Si vous l’avez déjà, allez simplement dans son dossier avec `cd`.
 
 ### Étape 2 — Installer (une seule fois)
 
@@ -156,7 +159,7 @@ brew install --cask calibre
 ### Étape 3 — Voir vos livres
 
 ```sh
-cd ~/dev/kobo-extract
+cd kobo-extract
 npm start -- --liste
 ```
 
@@ -320,7 +323,7 @@ Quand kobo-extract demande `numéro du livre (t = tous les libres, q = quitter)`
 | ✅ | Livre libre | L’extraire |
 | 🔒 | Livre verrouillé (DRM) | [Voie légale Fnac](#récupérer-un-livre-verrouillé-la-voie-légale) |
 | ☁️ | Pas encore sur la liseuse | [Le télécharger sur la Kobo](#récupérer-un-livre-pas-encore-téléchargé) |
-| ❓ | Fichier illisible ou format inconnu | Voir la [FAQ](#un-livre-est-marqué-fichier-illisible) |
+| ❓ | Fichier illisible, format inconnu, ou livre rangé sur la carte microSD | Voir la [FAQ](#un-livre-est-marqué-fichier-illisible) |
 
 Entre parenthèses, à côté du titre :
 
@@ -377,6 +380,14 @@ kobo-extract a déjà fait un deuxième essai avec des réglages plus simples. L
 ### Un livre est marqué fichier illisible
 
 Le fichier n’a pas pu être lu. Le plus souvent, la liseuse a été débranchée trop tôt ou le fichier est abîmé. Éjectez proprement la Kobo, rebranchez-la, puis relancez. Les autres livres ne sont pas concernés.
+
+### Un livre est marqué « sur la carte microSD »
+
+Certaines Kobo ont une carte microSD. Les livres rangés dessus ne sont pas dans le dossier de la liseuse que voit l’ordinateur. Retirez la carte, insérez-la dans le Mac (avec un adaptateur si besoin), puis analysez le livre :
+
+```sh
+npm start -- --fichier "/Volumes/NO NAME/Livres/mon-livre.epub"
+```
 
 ### « Impossible de lire la base de la Kobo »
 

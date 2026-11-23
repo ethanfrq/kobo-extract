@@ -100,7 +100,7 @@ npm start -- --tous        # extrait tous les livres libres dans ./extraits
 
 Le `--` après `npm start` est obligatoire : il transmet les options à kobo-extract.
 
-Légende : ✅ libre · 🔒 verrouillé · ☁️ pas encore téléchargé · ❓ illisible ou format inconnu.
+Légende : ✅ libre · 🔒 verrouillé · ☁️ pas encore téléchargé · ❓ illisible, format inconnu ou sur la carte microSD.
 
 Un fichier existant n’est jamais écrasé : la copie suivante s’appelle `Titre (2).pdf`.
 
@@ -122,7 +122,7 @@ Le format est identifié par les **premiers octets** du fichier : `PK\x03\x04` p
 | `META-INF/license.lcpl` présent | 🔒 DRM LCP |
 | Livre référencé dans la table `content_keys` (les clés ne sont jamais lues) | 🔒 Chiffré par Kobo |
 | `encryption.xml` avec un algorithme autre que le brouillage de polices | 🔒 Chiffré |
-| Premier chapitre qui n’est pas du HTML UTF-8 lisible | 🔒 Chiffré |
+| Premier chapitre qui n’est pas du HTML lisible (UTF-8, UTF-16 ou encodage déclaré par le chapitre) | 🔒 Chiffré |
 | PDF avec `/Encrypt` et `EBX_HANDLER` / `ADEPT` | 🔒 DRM Adobe |
 | PDF avec `/Encrypt` seul | 🔒 Mot de passe |
 | Aucun de ces signes | ✅ Libre |

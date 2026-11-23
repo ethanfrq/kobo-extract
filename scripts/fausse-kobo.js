@@ -249,7 +249,8 @@ lignesBase.push([UUID(6), '6', 'application/x-kobo-epub+zip', 'Achat tatoué', '
 
 // 7. Achat chiffré par Kobo : chapitre = octets aléatoires + ligne dans content_keys
 const brouille = randomBytes(2048);
-brouille[0] = 0xff; // garantit que ce n'est ni "<" ni de l'UTF-8 valide
+brouille[0] = 0xff; // ni "<", ni UTF-8 valide…
+brouille[1] = 0x00; // …ni signature UTF-16 (FF FE)
 ecrire(
   `.kobo/kepub/${UUID(7)}`,
   creerEpub({
