@@ -2,6 +2,26 @@
   "name": "kobo-extract",
   "version": "1.0.0",
   "description": "Liste les livres d'une liseuse Kobo, détecte les DRM (sans jamais les contourner) et extrait en PDF les livres libres.",
+  "keywords": [
+    "kobo",
+    "ebook",
+    "epub",
+    "pdf",
+    "drm",
+    "calibre",
+    "cli",
+    "liseuse"
+  ],
+  "author": "ethanfrq",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ethanfrq/kobo-extract.git"
+  },
+  "homepage": "https://github.com/ethanfrq/kobo-extract#readme",
+  "bugs": {
+    "url": "https://github.com/ethanfrq/kobo-extract/issues"
+  },
   "type": "module",
   "main": "index.js",
   "bin": {
@@ -15,7 +35,6 @@
     "fausse-kobo": "node --no-warnings scripts/fausse-kobo.js",
     "demo": "node --no-warnings scripts/fausse-kobo.js && node --no-warnings index.js --kobo ./fausse-kobo"
   },
-  "license": "MIT",
   "dependencies": {
     "adm-zip": "^0.6.1"
   }

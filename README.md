@@ -1,148 +1,173 @@
 # kobo-extract
 
-Petit outil en ligne de commande qui :
+[![Node.js ≥ 22.13](https://img.shields.io/badge/node-%E2%89%A5%2022.13-3c873a?logo=node.js&logoColor=white)](https://nodejs.org)
+[![Licence MIT](https://img.shields.io/badge/licence-MIT-blue)](LICENSE)
+[![Dépendances : 1](https://img.shields.io/badge/d%C3%A9pendances-1-informational)](package.json)
+![Langue : français](https://img.shields.io/badge/langue-fran%C3%A7ais-0055a4)
 
-1. trouve une liseuse **Kobo** branchée en USB ;
-2. liste ses livres et détecte lesquels sont protégés par une **DRM** ;
-3. extrait en **PDF** uniquement les livres **libres**.
+**Récupérez en PDF les livres libres de votre liseuse Kobo, sans jamais toucher aux livres protégés.**
 
-> 📘 **Première utilisation ?** Lisez le [guide utilisateur](GUIDE.md) : deux tutoriels pas à pas, des recettes pour chaque tâche et une FAQ.
+kobo-extract est un petit outil en ligne de commande. Vous branchez votre Kobo en USB, il liste vos livres, vous dit lesquels sont libres, puis transforme les livres libres en PDF.
 
 ```
  _  __ ___  ___  ___        _____  _______ ___    _    ___ _____
 | |/ // _ \| _ )/ _ \  ___ | __\ \/ /_   _| _ \  /_\  / __|_   _|
 | ' <| (_) | _ \ (_) ||___|| _| >  <  | | |   / / _ \| (__  | |
 |_|\_\\___/|___/\___/      |___/_/\_\ |_| |_|_\/_/ \_\\___| |_|
+
+  [  OK  ] noyau kobo-extract     v1.0.0 · Node 24.11.1
+  [  OK  ] pilote SQLite          node:sqlite · readOnly
+  [  OK  ] décodeur EPUB/ZIP      adm-zip
+  [  OK  ] détecteur DRM          Adobe · LCP · Kobo · PDF — sans déchiffrement
+  [  OK  ] pont Calibre           ebook-convert trouvé
+
+┌─[ BIBLIOTHÈQUE ]──────────────────────────────────────────────────
+[1] 🔒 Achat chiffré — Noa Girard (epub · boutique)
+    └─ chiffré par Kobo (référencé dans content_keys)
+[2] ☁️  Achat dans le nuage — Charlie Roux (? · boutique)
+    └─ pas encore téléchargé sur la liseuse
+[3] ✅ Achat tatoué — Maxime Laurent (epub · boutique)
+[4] ✅ Le Petit Guide libre — Camille Martin (epub · perso)
+[5] ✅ Notes de cours — Alex Durand (pdf · perso)
+
+[*] 5 livre(s) : 3 libre(s), 1 verrouillé(s), 1 non téléchargé(s)
 ```
 
-## ⚖️ Ce que le programme ne fera jamais
+> 📘 **Première utilisation ?** Le [guide utilisateur](GUIDE.md) contient deux tutoriels pas à pas, une recette pour chaque tâche, une FAQ et un glossaire.
 
-- Il **ne contourne, ne supprime et ne déchiffre jamais** une DRM. Contourner une DRM est interdit en France (art. L.335-3-1 du Code de la propriété intellectuelle).
-- Il **n’écrit jamais sur la liseuse** : la base SQLite est ouverte en `readOnly: true` et les fichiers sont seulement lus.
+## Fonctionnalités
 
-Pour un livre verrouillé, la voie légale est la suivante : **compte Fnac → Mes ebooks → Télécharger**.
+- 🔍 **Détection automatique** de la liseuse sur Mac, Linux et Windows.
+- 📚 **Liste complète** : les livres de la bibliothèque Kobo et les fichiers `.epub` / `.pdf` que la liseuse n’a pas encore indexés.
+- 🔒 **Détection des DRM** : Adobe, LCP, chiffrement Kobo et PDF protégés par mot de passe.
+- 📄 **Conversion en PDF** A5 avec numéros de page, grâce à Calibre.
+- 🛡️ **Liseuse en lecture seule** : rien n’est jamais écrit sur la Kobo.
+- 🧯 **Ne reste jamais bloqué** : délai maximum pour Calibre, Ctrl+C propre, solutions de secours si la base de la Kobo est verrouillée.
+- 🧪 **Fausse liseuse de démonstration** avec 8 cas de test.
+- 🟢 **Interface en français** au style terminal (pluie Matrix, bannière glitch, démarrage animé), désactivable avec `--sobre`.
 
-- Si vous recevez un **.epub**, le livre est libre : relancez avec `--fichier <livre.epub>`.
+## ⚖️ Ce que kobo-extract ne fera jamais
+
+kobo-extract **ne contourne, ne supprime et ne déchiffre aucune DRM**. C’est interdit en France (article L.335-3-1 du Code de la propriété intellectuelle). Il détecte les verrous pour vous prévenir, sans jamais les ouvrir.
+
+Pour un livre verrouillé acheté à la Fnac, la voie légale est la suivante : **compte Fnac → Mes ebooks → Télécharger**.
+
+- Si vous recevez un **.epub**, le livre est libre : `npm start -- --fichier livre.epub`.
 - Si vous recevez un **.acsm**, c’est une DRM Adobe : lisez le livre avec **Kobo Desktop** ou **Adobe Digital Editions**.
 
 ## Installation
 
-Prérequis :
+**Prérequis :**
 
-- **Node.js 22.13 ou plus récent** ;
-- **Calibre** (facultatif), pour convertir les EPUB en PDF :
-
-  ```sh
-  brew install --cask calibre     # Mac
-  sudo apt install calibre        # Linux
-  ```
-
-Ensuite :
+- [Node.js](https://nodejs.org) 22.13 ou plus récent ;
+- [Calibre](https://calibre-ebook.com/download), recommandé pour obtenir des PDF. Sans lui, les livres sont récupérés au format EPUB.
 
 ```sh
+git clone https://github.com/ethanfrq/kobo-extract.git
+cd kobo-extract
 npm install
+
+# Facultatif, sur Mac :
+brew install --cask calibre
 ```
 
-Sans Calibre, les livres EPUB sont quand même copiés au format `.epub`.
-
-## Utilisation
-
-1. Branchez la Kobo et touchez **« Se connecter »** sur son écran.
-2. Lancez l’outil :
+## Démarrage rapide
 
 ```sh
-npm start                                  # liste + choix interactif
-npm start -- --liste                       # liste seulement
-npm start -- --livre 3                     # extrait le livre n°3
-npm start -- --tous                        # extrait tous les livres libres
-npm start -- --fichier ~/Downloads/x.epub  # analyse un fichier hors liseuse
-npm start -- --sortie ~/Documents/livres   # change le dossier de sortie
-npm start -- --kobo /chemin/vers/kobo      # indique la liseuse à la main
-npm start -- --tous --delai 900            # laisse 15 min max à Calibre par livre
-npm start -- --sobre                       # sans animations
-npm start -- -h                            # aide
+npm run demo               # essai sans liseuse, sur une fausse Kobo
 ```
 
-Légende : ✅ libre · 🔒 verrouillé · ☁️ pas encore téléchargé · ❓ format inconnu.
-
-Les fichiers extraits vont dans `./extraits`. Un fichier existant n’est jamais écrasé : la copie s’appelle alors `Titre (2).pdf`.
-
-## Démo sans liseuse
+Avec votre liseuse : branchez la Kobo, touchez **« Se connecter »** sur son écran, puis :
 
 ```sh
-npm run demo
+npm start                  # liste + choix d’un livre
+npm start -- --tous        # extrait tous les livres libres dans ./extraits
 ```
 
-Cette commande crée une fausse Kobo dans `./fausse-kobo`, avec 8 cas de test, puis lance l’outil dessus :
+## Options
 
-| # | Cas | Résultat attendu |
-|---|-----|------------------|
-| 1 | EPUB perso (police brouillée) | ✅ libre |
-| 2 | PDF perso | ✅ libre |
-| 3 | EPUB avec `META-INF/rights.xml` | 🔒 DRM Adobe |
-| 4 | PDF avec `/Encrypt` `EBX_HANDLER` | 🔒 DRM Adobe |
-| 5 | `.kepub.epub` pas encore indexé | ✅ libre |
-| 6 | Achat tatoué sans DRM (`.kobo/kepub`) | ✅ libre |
-| 7 | Achat chiffré (`content_keys`) | 🔒 chiffré par Kobo |
-| 8 | Achat dans la base, absent du disque | ☁️ pas téléchargé |
+| Option | Effet |
+|---|---|
+| `--liste` | Affiche la liste, puis s’arrête |
+| `--livre <n>` | Extrait le livre numéro *n* |
+| `--tous` | Extrait tous les livres libres |
+| `--fichier <fichier>` | Analyse un `.epub` ou un `.acsm` hors liseuse |
+| `--sortie <dossier>` | Dossier de destination (défaut : `./extraits`) |
+| `--kobo <dossier>` | Emplacement de la liseuse (sinon détection automatique) |
+| `--delai <secondes>` | Temps maximum par conversion Calibre (défaut : 300) |
+| `--sobre` | Sans animations |
+| `-h`, `--help` | Aide |
+
+Le `--` après `npm start` est obligatoire : il transmet les options à kobo-extract.
+
+Légende : ✅ libre · 🔒 verrouillé · ☁️ pas encore téléchargé · ❓ illisible ou format inconnu.
+
+Un fichier existant n’est jamais écrasé : la copie suivante s’appelle `Titre (2).pdf`.
 
 ## Comment ça marche
 
-| Fichier | Rôle |
-|---------|------|
-| `index.js` | Interface en ligne de commande (options, liste, questions) |
-| `src/kobo.js` | Trouve la liseuse, lit la base SQLite, parcourt le disque |
-| `src/drm.js` | Détecte les verrous sans jamais les ouvrir |
-| `src/convertir.js` | Copie les livres libres et appelle Calibre |
-| `src/style.js` | Habillage du terminal (couleurs, bannière, traces) |
-| `scripts/fausse-kobo.js` | Génère la fausse liseuse de test |
+### Lecture de la Kobo
+
+- La liseuse est reconnue à son dossier caché `.kobo`.
+- Son catalogue est la base SQLite `.kobo/KoboReader.sqlite`, ouverte en `readOnly: true`. Les livres sont les lignes de la table `content` où `ContentType = 6`.
+- Si cette base est verrouillée ou inaccessible, kobo-extract essaie trois solutions dans l’ordre : attendre le verrou, lire une copie temporaire, puis ouvrir en mode `immutable=1`.
 
 ### Détection des DRM
 
 Le format est identifié par les **premiers octets** du fichier : `PK\x03\x04` pour un EPUB (archive ZIP), `%PDF` pour un PDF.
 
-**EPUB** (contrôles effectués dans cet ordre) :
+| Contrôle | Résultat |
+|---|---|
+| `META-INF/rights.xml` présent | 🔒 DRM Adobe |
+| `META-INF/license.lcpl` présent | 🔒 DRM LCP |
+| Livre référencé dans la table `content_keys` (les clés ne sont jamais lues) | 🔒 Chiffré par Kobo |
+| `encryption.xml` avec un algorithme autre que le brouillage de polices | 🔒 Chiffré |
+| Premier chapitre qui n’est pas du HTML UTF-8 lisible | 🔒 Chiffré |
+| PDF avec `/Encrypt` et `EBX_HANDLER` / `ADEPT` | 🔒 DRM Adobe |
+| PDF avec `/Encrypt` seul | 🔒 Mot de passe |
+| Aucun de ces signes | ✅ Libre |
 
-1. `META-INF/rights.xml` présent → DRM Adobe.
-2. `META-INF/license.lcpl` présent → DRM LCP.
-3. Livre présent dans la table `content_keys` → chiffré par Kobo. Seule la présence est vérifiée : les clés ne sont jamais lues.
-4. `META-INF/encryption.xml` contient un algorithme autre que le simple brouillage de polices → chiffré.
-5. Le premier chapitre n’est pas du HTML lisible en UTF-8 → chiffré.
+### Conversion
 
-**PDF** :
+```sh
+ebook-convert livre.epub livre.pdf --paper-size a5 --pdf-page-numbers
+```
 
-- pas de `/Encrypt` → libre ;
-- `EBX_HANDLER` ou `ADEPT` → DRM Adobe ;
-- sinon → protégé par mot de passe.
+Calibre est cherché dans le `PATH`, puis dans `/Applications/calibre.app`. En cas d’échec, kobo-extract réessaie sans `--pdf-page-numbers`. Si ça échoue encore, il garde l’EPUB.
 
-### Effets du terminal
+## Structure du projet
 
-Au lancement, dans un vrai terminal, quatre effets s’enchaînent en 4 à 5 secondes :
+```
+kobo-extract/
+├── index.js               interface en ligne de commande
+├── src/
+│   ├── kobo.js            trouver la liseuse, lire la base, parcourir le disque
+│   ├── drm.js             détecter les verrous (sans jamais les ouvrir)
+│   ├── convertir.js       copier et convertir avec Calibre
+│   └── style.js           habillage du terminal (couleurs, animations)
+├── scripts/
+│   └── fausse-kobo.js     générer la fausse liseuse de test (8 cas)
+├── GUIDE.md               guide utilisateur
+└── README.md
+```
 
-1. une **pluie de caractères façon Matrix** ;
-2. la **bannière en « glitch »** : elle se brouille puis se stabilise ;
-3. un **dégradé vert → cyan** sur la bannière ;
-4. une **séquence de démarrage** avec des barres de progression. Elle affiche de vraies informations : version de Node, présence ou absence de Calibre.
+Une seule dépendance ([adm-zip](https://www.npmjs.com/package/adm-zip)). Tout le reste vient de Node : `node:sqlite`, `node:util` (`parseArgs`), `node:readline/promises` et `node:child_process`.
 
-Pour couper ces effets :
+## Fausse liseuse de test
 
-- `--sobre` : plus d’animations, une simple ligne d’en-tête ;
-- `NO_COLOR=1 npm start` : ni couleurs ni animations.
+`npm run demo` crée `./fausse-kobo` avec ces 8 cas :
 
-Les animations se coupent aussi toutes seules quand la sortie n’est pas un terminal (fichier, tuyau `|`). Un Ctrl+C pendant l’intro quitte proprement et réaffiche le curseur.
+| # | Cas | Attendu |
+|---|---|---|
+| 1 | EPUB perso (police brouillée) | ✅ libre |
+| 2 | PDF perso | ✅ libre |
+| 3 | EPUB avec `rights.xml` | 🔒 Adobe |
+| 4 | PDF avec `/Encrypt` `EBX_HANDLER` | 🔒 Adobe |
+| 5 | `.kepub.epub` non indexé | ✅ libre |
+| 6 | Achat tatoué sans DRM (`.kobo/kepub`) | ✅ libre |
+| 7 | Achat chiffré (`content_keys`) | 🔒 Kobo |
+| 8 | Achat dans la base, absent du disque | ☁️ non téléchargé |
 
-## En cas de problème
+## Licence
 
-Le programme ne doit jamais rester bloqué. Voici ce qu’il fait dans chaque situation.
-
-| Situation | Ce que fait kobo-extract |
-|-----------|--------------------------|
-| La Kobo écrit dans sa base au même moment (base verrouillée) | Il attend 5 s. Si c’est toujours verrouillé, il lit une **copie temporaire** de la base, puis l’efface. |
-| La liseuse est montée en lecture seule | Même solution : il lit une copie temporaire. En dernier recours, il ouvre la base en mode `immutable=1`. |
-| La base est illisible | Il continue avec les seuls fichiers trouvés sur le disque. |
-| Un fichier est illisible (droits, secteur abîmé…) | Le livre est marqué ❓ et les autres livres sont quand même analysés. |
-| Calibre ne répond plus | Il l’arrête au bout de `--delai` secondes (300 par défaut), sous-processus compris, et garde l’EPUB. |
-| Calibre échoue | Il réessaie sans `--pdf-page-numbers`. Si ça échoue encore, il garde l’EPUB. |
-| Ctrl+C pendant une conversion | Il arrête Calibre, supprime le PDF à moitié écrit et se termine avec le code 130. |
-| Ctrl+C ou entrée fermée pendant la question | Il quitte proprement, sans rien extraire. |
-| Très gros PDF | Il le lit par blocs de 1 Mo : la mémoire n’est jamais saturée. |
+[MIT](LICENSE). Usage personnel : respectez les droits des auteurs et des éditeurs.
