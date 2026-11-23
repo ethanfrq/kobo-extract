@@ -56,6 +56,7 @@ npm start -- --tous                        # extrait tous les livres libres
 npm start -- --fichier ~/Downloads/x.epub  # analyse un fichier hors liseuse
 npm start -- --sortie ~/Documents/livres   # change le dossier de sortie
 npm start -- --kobo /chemin/vers/kobo      # indique la liseuse à la main
+npm start -- --tous --delai 900            # laisse 15 min max à Calibre par livre
 npm start -- -h                            # aide
 ```
 
@@ -112,3 +113,19 @@ Le format est identifié par les **premiers octets** du fichier : `PK\x03\x04` p
 - sinon → protégé par mot de passe.
 
 Pour couper les couleurs : `NO_COLOR=1 npm start`.
+
+## En cas de problème
+
+Le programme ne doit jamais rester bloqué. Voici ce qu’il fait dans chaque situation.
+
+| Situation | Ce que fait kobo-extract |
+|-----------|--------------------------|
+| La Kobo écrit dans sa base au même moment (base verrouillée) | Il attend 5 s. Si c’est toujours verrouillé, il lit une **copie temporaire** de la base, puis l’efface. |
+| La liseuse est montée en lecture seule | Même solution : il lit une copie temporaire. En dernier recours, il ouvre la base en mode `immutable=1`. |
+| La base est illisible | Il continue avec les seuls fichiers trouvés sur le disque. |
+| Un fichier est illisible (droits, secteur abîmé…) | Le livre est marqué ❓ et les autres livres sont quand même analysés. |
+| Calibre ne répond plus | Il l’arrête au bout de `--delai` secondes (300 par défaut), sous-processus compris, et garde l’EPUB. |
+| Calibre échoue | Il réessaie sans `--pdf-page-numbers`. Si ça échoue encore, il garde l’EPUB. |
+| Ctrl+C pendant une conversion | Il arrête Calibre, supprime le PDF à moitié écrit et se termine avec le code 130. |
+| Ctrl+C ou entrée fermée pendant la question | Il quitte proprement, sans rien extraire. |
+| Très gros PDF | Il le lit par blocs de 1 Mo : la mémoire n’est jamais saturée. |

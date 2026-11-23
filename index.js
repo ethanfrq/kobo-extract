@@ -7,7 +7,7 @@ import { existsSync } from 'node:fs';
 import { basename, resolve, extname } from 'node:path';
 import { trouverKobo, estUneKobo, listerLivres } from './src/kobo.js';
 import { analyser, messagePour, MESSAGE_LEGAL } from './src/drm.js';
-import { extraire, AIDE_CALIBRE } from './src/convertir.js';
+import { extraire, AIDE_CALIBRE, DELAI_PAR_DEFAUT, Interruption } from './src/convertir.js';
 import * as s from './src/style.js';
 
 const AIDE = `
@@ -21,7 +21,8 @@ ${s.gras('OPTIONS')}
   --tous               extraire tous les livres libres
   --fichier <fichier>  analyser un .epub (ou un .acsm) hors liseuse
   --sortie <dossier>   dossier de destination (défaut : ./extraits)
-  -h, --help           afficher cette aide
+  --delai <secondes>   temps max d’une conversion Calibre (défaut : ${DELAI_PAR_DEFAUT})
+  -h, --help          afficher cette aide
 
 ${s.gras('LÉGENDE')}
   ✅ libre    🔒 verrouillé (DRM)    ☁️  pas encore téléchargé    ❓ format inconnu
@@ -46,6 +47,7 @@ function lireOptions() {
         tous: { type: 'boolean', default: false },
         fichier: { type: 'string' },
         sortie: { type: 'string', default: './extraits' },
+        delai: { type: 'string', default: String(DELAI_PAR_DEFAUT) },
         help: { type: 'boolean', short: 'h', default: false },
       },
     }).values;
@@ -102,6 +104,9 @@ function afficherListe(livres) {
   );
 }
 
+// Réglages communs à toutes les extractions (remplis dans main).
+const reglages = { delai: DELAI_PAR_DEFAUT };
+
 async function extraireLivre(livre, sortie) {
   s.titre(`EXTRACTION #${livre.numero} · ${livre.titre}`);
   const { analyse } = livre;
@@ -112,16 +117,18 @@ async function extraireLivre(livre, sortie) {
     return false;
   }
   try {
-    const resultat = await extraire(livre, sortie);
+    const resultat = await extraire(livre, sortie, reglages);
     for (const fichier of resultat.fichiers) s.ok(`Écrit : ${s.gras(fichier)}`);
     if (resultat.calibreAbsent) for (const ligne of AIDE_CALIBRE) s.alerte(ligne);
     if (resultat.erreurConversion) {
       s.erreur(`La conversion a échoué : ${resultat.erreurConversion}`);
+      process.exitCode = 1;
       s.alerte('L’EPUB a été gardé dans le dossier de sortie.');
     }
     return true;
   } catch (e) {
-    s.erreur(e.message);
+    if (e instanceof Interruption) throw e; // remonte jusqu'à main : on arrête tout
+    s.erreur(`Échec de l’extraction : ${e.code ?? ''} ${e.message}`.replace('  ', ' '));
     process.exitCode = 1;
     return false;
   }
@@ -148,13 +155,37 @@ function trouverNumero(livres, texte) {
   return livres[n - 1];
 }
 
+// Pose une question. Renvoie null si l'entrée est fermée (Ctrl+D, tuyau vide) ou sur Ctrl+C,
+// au lieu d'attendre une réponse qui n'arrivera jamais.
+function demander(rl, question) {
+  return new Promise((resoudre) => {
+    const annulation = new AbortController();
+    const surFermeture = () => {
+      annulation.abort();
+      resoudre(null);
+    };
+    rl.once('close', surFermeture);
+    rl.question(question, { signal: annulation.signal }).then(
+      (reponse) => {
+        rl.off('close', surFermeture);
+        resoudre(reponse);
+      },
+      () => resoudre(null),
+    );
+  });
+}
+
 async function modeInteractif(livres, sortie) {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
+  rl.on('SIGINT', () => rl.close()); // Ctrl+C pendant la question → on ferme proprement
   try {
     while (true) {
-      const reponse = (await rl.question(`\n${s.vertVif('kobo-extract')}${s.gris('>')} numéro du livre (t = tous les libres, q = quitter) : `))
-        .trim()
-        .toLowerCase();
+      const brute = await demander(rl, `\n${s.vertVif('kobo-extract')}${s.gris('>')} numéro du livre (t = tous les libres, q = quitter) : `);
+      if (brute === null) {
+        console.log();
+        return s.info('Aucune réponse (entrée fermée ou Ctrl+C) : rien n’a été extrait. Au revoir.');
+      }
+      const reponse = brute.trim().toLowerCase();
       if (reponse === 'q' || reponse === '') return s.info('Au revoir.');
       if (reponse === 't') return await extraireTous(livres, sortie);
       const livre = trouverNumero(livres, reponse);
@@ -200,6 +231,14 @@ async function main() {
   await s.banniere();
   if (options.help) return console.log(AIDE);
 
+  const delai = Number(options.delai);
+  if (!Number.isFinite(delai) || delai <= 0) {
+    s.erreur(`--delai doit être un nombre de secondes positif (reçu : « ${options.delai} »).`);
+    process.exitCode = 1;
+    return;
+  }
+  reglages.delai = delai;
+
   const sortie = resolve(options.sortie);
   if (options.fichier) return traiterFichier(options.fichier, sortie);
 
@@ -229,6 +268,12 @@ async function main() {
 }
 
 main().catch((e) => {
+  if (e instanceof Interruption) {
+    console.log();
+    s.alerte('Interrompu (Ctrl+C) : conversion arrêtée, aucun fichier partiel laissé.');
+    process.exitCode = 130; // code standard d'une interruption par Ctrl+C
+    return;
+  }
   s.erreur(`Erreur inattendue : ${e.message}`);
   process.exitCode = 1;
 });

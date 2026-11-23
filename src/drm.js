@@ -1,7 +1,7 @@
 // Détection des verrous numériques (DRM).
 // Ce module REGARDE seulement : il ne contourne, ne supprime et ne déchiffre jamais rien.
 
-import { openSync, readSync, closeSync, existsSync, readFileSync } from 'node:fs';
+import { openSync, readSync, closeSync, existsSync } from 'node:fs';
 import { posix } from 'node:path';
 import AdmZip from 'adm-zip';
 import { trace } from './style.js';
@@ -144,13 +144,45 @@ function analyserEpub(chemin, dansContentKeys) {
 
 // ---------- PDF ----------
 
+// Cherche des motifs dans un fichier, bloc de 1 Mo par bloc de 1 Mo :
+// un PDF de 2 Go ne sature pas la mémoire.
+// Les blocs se chevauchent pour ne pas rater un motif coupé en deux.
+export function chercherDansFichier(chemin, motifs, tailleBloc = 1 << 20) {
+  const trouves = new Set();
+  const tester = (texte) => {
+    for (const [nom, motif] of Object.entries(motifs)) if (motif.test(texte)) trouves.add(nom);
+  };
+  const fd = openSync(chemin, 'r');
+  try {
+    const bloc = Buffer.alloc(tailleBloc);
+    let reste = '';
+    for (let position = 0; ; ) {
+      const lus = readSync(fd, bloc, 0, tailleBloc, position);
+      if (lus === 0) break;
+      position += lus;
+      const texte = reste + bloc.toString('latin1', 0, lus);
+      tester(texte.slice(0, -32)); // la fin sera testée avec le bloc suivant
+      reste = texte.slice(-64);
+    }
+    tester(reste);
+  } finally {
+    closeSync(fd);
+  }
+  return trouves;
+}
+
+const MOTIFS_PDF = {
+  encrypt: /\/Encrypt(?![A-Za-z])/, // et pas /EncryptMetadata
+  adobe: /EBX_HANDLER|ADEPT/,
+};
+
 function analyserPdf(chemin) {
-  const texte = readFileSync(chemin).toString('latin1');
-  if (!/\/Encrypt\b/.test(texte)) {
+  const trouves = chercherDansFichier(chemin, MOTIFS_PDF);
+  if (!trouves.has('encrypt')) {
     trace('pdf', '/Encrypt absent');
     return libre('pdf', 'aucun verrou détecté');
   }
-  if (/EBX_HANDLER|ADEPT/.test(texte)) {
+  if (trouves.has('adobe')) {
     trace('pdf', '/Encrypt + EBX_HANDLER/ADEPT');
     return verrou('pdf', 'adobe', 'DRM Adobe (EBX_HANDLER)');
   }
@@ -160,7 +192,18 @@ function analyserPdf(chemin) {
 
 // ---------- Point d'entrée ----------
 
+// Un fichier illisible (permission, liseuse débranchée, secteur abîmé…) ne doit pas
+// faire planter l'analyse de toute la bibliothèque : il est simplement marqué "inconnu".
 export function analyser(livre) {
+  try {
+    return analyserFichier(livre);
+  } catch (e) {
+    trace('erreur', `${livre.titre} → ${e.code ?? e.message}`);
+    return { statut: 'inconnu', format: null, drm: null, raison: `fichier illisible (${e.code ?? e.message})` };
+  }
+}
+
+function analyserFichier(livre) {
   if (!existsSync(livre.chemin)) {
     trace('fs', `${livre.titre} → fichier absent`);
     return { statut: 'non-telecharge', format: null, drm: null, raison: 'pas encore téléchargé sur la liseuse' };
