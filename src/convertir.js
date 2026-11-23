@@ -9,6 +9,12 @@ import { trace, commande, spinner, alerte } from './style.js';
 export const CALIBRE_MAC = '/Applications/calibre.app/Contents/MacOS/ebook-convert';
 export const DELAI_PAR_DEFAUT = 300; // secondes
 
+// Formats de sortie :
+//  - "pdf"  : EPUB + PDF pour les livres EPUB (conversion Calibre), PDF copié tel quel ;
+//  - "epub" : EPUB seulement, sans Calibre. Un livre déjà en PDF reste un PDF.
+export const FORMATS = ['pdf', 'epub'];
+export const FORMAT_PAR_DEFAUT = 'pdf';
+
 // Essais successifs : si le premier échoue, on retente sans la numérotation des pages,
 // une option qui fait parfois échouer Calibre sur des livres mal formés.
 export const ESSAIS_PDF = [
@@ -179,7 +185,7 @@ async function convertirEnPdf(calibre, epub, dossier, base, delaiSecondes) {
   return { erreur: dernierEchec };
 }
 
-export async function extraire(livre, sortie, { delai = DELAI_PAR_DEFAUT } = {}) {
+export async function extraire(livre, sortie, { delai = DELAI_PAR_DEFAUT, format = FORMAT_PAR_DEFAUT } = {}) {
   // Double sécurité : on n'extrait jamais un livre qui n'a pas été déclaré libre.
   if (livre.analyse?.statut !== 'libre') {
     throw new Error('refus : ce livre n’est pas libre, il ne sera pas extrait');
@@ -190,12 +196,14 @@ export async function extraire(livre, sortie, { delai = DELAI_PAR_DEFAUT } = {})
   if (livre.analyse.format === 'pdf') {
     const pdf = cheminLibre(sortie, base, '.pdf');
     copier(livre.chemin, pdf);
-    return { fichiers: [pdf] };
+    // Un PDF ne se transforme pas proprement en EPUB : on le garde tel quel.
+    return { fichiers: [pdf], dejaPdf: format === 'epub' };
   }
 
   // EPUB ou kepub sans extension → copie en .epub
   const epub = cheminLibre(sortie, base, '.epub');
   copier(livre.chemin, epub);
+  if (format === 'epub') return { fichiers: [epub] }; // pas de conversion demandée
 
   const calibre = trouverCalibre();
   trace('calibre', calibre ?? 'ebook-convert introuvable');

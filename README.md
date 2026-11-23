@@ -40,7 +40,7 @@ kobo-extract est un petit outil en ligne de commande. Vous branchez votre Kobo e
 - 🔍 **Détection automatique** de la liseuse sur Mac, Linux et Windows.
 - 📚 **Liste complète** : les livres de la bibliothèque Kobo et les fichiers `.epub` / `.pdf` que la liseuse n’a pas encore indexés.
 - 🔒 **Détection des DRM** : Adobe, LCP, chiffrement Kobo et PDF protégés par mot de passe.
-- 📄 **Conversion en PDF** A5 avec numéros de page, grâce à Calibre.
+- 📄 **Conversion en PDF** A5 avec numéros de page, grâce à Calibre, ou **EPUB seulement** avec `--format epub`.
 - 🛡️ **Liseuse en lecture seule** : rien n’est jamais écrit sur la Kobo.
 - 🧯 **Ne reste jamais bloqué** : délai maximum pour Calibre, Ctrl+C propre, solutions de secours si la base de la Kobo est verrouillée.
 - 🧪 **Fausse liseuse de démonstration** avec 8 cas de test.
@@ -93,6 +93,7 @@ npm start -- --tous        # extrait tous les livres libres dans ./extraits
 | `--tous` | Extrait tous les livres libres |
 | `--fichier <fichier>` | Analyse un `.epub` ou un `.acsm` hors liseuse |
 | `--sortie <dossier>` | Dossier de destination (défaut : `./extraits`) |
+| `--format <pdf\|epub>` | `pdf` : EPUB + PDF (défaut) · `epub` : EPUB seulement, sans Calibre |
 | `--kobo <dossier>` | Emplacement de la liseuse (sinon détection automatique) |
 | `--delai <secondes>` | Temps maximum par conversion Calibre (défaut : 300) |
 | `--sobre` | Sans animations |

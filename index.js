@@ -8,7 +8,7 @@ import { basename, resolve, extname, join } from 'node:path';
 import { homedir, constants as osConstants } from 'node:os';
 import { trouverKobo, estUneKobo, listerLivres, sansControle } from './src/kobo.js';
 import { analyser, messagePour, MESSAGE_LEGAL } from './src/drm.js';
-import { extraire, trouverCalibre, AIDE_CALIBRE, DELAI_PAR_DEFAUT, Interruption } from './src/convertir.js';
+import { extraire, trouverCalibre, AIDE_CALIBRE, DELAI_PAR_DEFAUT, FORMATS, FORMAT_PAR_DEFAUT, Interruption } from './src/convertir.js';
 import * as s from './src/style.js';
 
 const AIDE = `
@@ -22,6 +22,7 @@ ${s.gras('OPTIONS')}
   --tous               extraire tous les livres libres
   --fichier <fichier>  analyser un .epub (ou un .acsm) hors liseuse
   --sortie <dossier>   dossier de destination (défaut : ./extraits)
+  --format <pdf|epub>  pdf : EPUB + PDF (défaut) · epub : EPUB seulement, sans Calibre
   --delai <secondes>   temps max d’une conversion Calibre (défaut : ${DELAI_PAR_DEFAUT})
   --sobre              sans animations (ni Matrix, ni glitch, ni démarrage)
   -h, --help          afficher cette aide
@@ -60,6 +61,7 @@ function lireOptions() {
         fichier: { type: 'string' },
         sortie: { type: 'string', default: './extraits' },
         delai: { type: 'string', default: String(DELAI_PAR_DEFAUT) },
+        format: { type: 'string', default: FORMAT_PAR_DEFAUT },
         sobre: { type: 'boolean', default: false },
         help: { type: 'boolean', short: 'h', default: false },
       },
@@ -118,21 +120,23 @@ function afficherListe(livres) {
 }
 
 // Modules affichés dans la séquence de démarrage (avec de vraies informations).
-function modulesDemarrage() {
-  const calibre = trouverCalibre();
+function modulesDemarrage(format) {
+  const calibre = format === 'epub' ? null : trouverCalibre();
   return [
     { nom: 'noyau kobo-extract', detail: `v${VERSION} · Node ${process.versions.node}` },
     { nom: 'pilote SQLite', detail: 'node:sqlite · readOnly' },
     { nom: 'décodeur EPUB/ZIP', detail: 'adm-zip' },
     { nom: 'détecteur DRM', detail: 'Adobe · LCP · Kobo · PDF — sans déchiffrement' },
-    calibre
+    format === 'epub'
+      ? { nom: 'pont Calibre', detail: 'non utilisé (--format epub)' }
+      : calibre
       ? { nom: 'pont Calibre', detail: 'ebook-convert trouvé' }
       : { nom: 'pont Calibre', detail: 'ebook-convert absent → EPUB seulement', ok: false },
   ];
 }
 
 // Réglages communs à toutes les extractions (remplis dans main).
-const reglages = { delai: DELAI_PAR_DEFAUT };
+const reglages = { delai: DELAI_PAR_DEFAUT, format: FORMAT_PAR_DEFAUT };
 
 async function extraireLivre(livre, sortie) {
   s.titre(`EXTRACTION #${livre.numero} · ${livre.titre}`);
@@ -146,6 +150,7 @@ async function extraireLivre(livre, sortie) {
   try {
     const resultat = await extraire(livre, sortie, reglages);
     for (const fichier of resultat.fichiers) s.ok(`Écrit : ${s.gras(fichier)}`);
+    if (resultat.dejaPdf) s.info('Ce livre est déjà un PDF : il est copié tel quel (un PDF ne se transforme pas en EPUB).');
     if (resultat.calibreAbsent) {
       // Une seule fois par lancement, pas à chaque livre.
       if (!reglages.calibreSignale) for (const ligne of AIDE_CALIBRE) s.alerte(ligne);
@@ -265,7 +270,15 @@ async function main() {
     s.entete();
     return console.log(AIDE);
   }
-  await s.intro(modulesDemarrage());
+  const format = options.format.trim().toLowerCase();
+  if (!FORMATS.includes(format)) {
+    s.erreur(`--format doit valoir ${FORMATS.join(' ou ')} (reçu : « ${options.format} »).`);
+    process.exitCode = 1;
+    return;
+  }
+  reglages.format = format;
+
+  await s.intro(modulesDemarrage(format));
 
   const delai = Number(options.delai);
   if (!Number.isFinite(delai) || delai <= 0) {

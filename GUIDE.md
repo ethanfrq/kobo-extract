@@ -209,6 +209,14 @@ npm start -- --tous
 
 Les livres verrouillés et non téléchargés sont ignorés automatiquement.
 
+### Garder seulement l’EPUB (sans PDF)
+
+```sh
+npm start -- --tous --format epub
+```
+
+Les livres EPUB sont copiés en `.epub`, sans conversion, donc sans Calibre et très vite. Un livre qui est déjà un PDF est copié tel quel, car un PDF ne se transforme pas en EPUB.
+
 ### Choisir où ranger les livres
 
 Par défaut, les livres vont dans le dossier `extraits`. Pour les mettre ailleurs :
@@ -301,6 +309,7 @@ Sans `brew` : téléchargez la version « LTS » sur <https://nodejs.org>.
 | `--tous` | Extrait tous les livres libres | `npm start -- --tous` |
 | `--fichier <fichier>` | Analyse un `.epub` ou un `.acsm` hors liseuse | `npm start -- --fichier livre.epub` |
 | `--sortie <dossier>` | Change le dossier de destination (défaut : `extraits`) | `npm start -- --tous --sortie ~/Livres` |
+| `--format <pdf\|epub>` | `pdf` : EPUB + PDF (défaut) · `epub` : EPUB seulement | `npm start -- --tous --format epub` |
 | `--kobo <dossier>` | Indique où est la liseuse | `npm start -- --kobo /Volumes/KOBOeReader` |
 | `--delai <secondes>` | Temps maximum par conversion (défaut : 300) | `npm start -- --tous --delai 900` |
 | `--sobre` | Sans animations | `npm start -- --sobre` |
@@ -352,6 +361,8 @@ Entre parenthèses, à côté du titre :
 | PDF libre | `Auteur - Titre.pdf` |
 | EPUB libre, avec Calibre | `Auteur - Titre.epub` + `Auteur - Titre.pdf` |
 | EPUB libre, sans Calibre | `Auteur - Titre.epub` seulement |
+| EPUB libre, avec `--format epub` | `Auteur - Titre.epub` seulement |
+| PDF libre, avec `--format epub` | `Auteur - Titre.pdf` (copié tel quel) |
 
 Un fichier existant n’est **jamais remplacé** : la nouvelle copie s’appelle `Titre (2).pdf`, `Titre (3).pdf`…
 
