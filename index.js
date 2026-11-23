@@ -4,7 +4,8 @@
 import { parseArgs } from 'node:util';
 import { createInterface } from 'node:readline/promises';
 import { existsSync, readFileSync } from 'node:fs';
-import { basename, resolve, extname } from 'node:path';
+import { basename, resolve, extname, join } from 'node:path';
+import { homedir } from 'node:os';
 import { trouverKobo, estUneKobo, listerLivres } from './src/kobo.js';
 import { analyser, messagePour, MESSAGE_LEGAL } from './src/drm.js';
 import { extraire, trouverCalibre, AIDE_CALIBRE, DELAI_PAR_DEFAUT, Interruption } from './src/convertir.js';
@@ -34,6 +35,14 @@ ${s.gras('EXEMPLES')}
   npm start -- --livre 3 --sortie ~/Documents/livres
   npm start -- --fichier ~/Downloads/mon-livre.epub
 `;
+
+// Remplace un ~ initial par le dossier personnel. Le terminal le fait normalement,
+// mais pas quand le chemin est écrit entre guillemets ("~/Mes Livres").
+function cheminReel(chemin) {
+  if (chemin === '~') return homedir();
+  if (chemin.startsWith('~/')) return join(homedir(), chemin.slice(2));
+  return resolve(chemin);
+}
 
 const VERSION = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')).version;
 
@@ -67,7 +76,7 @@ function lireOptions() {
 function localiserKobo(dossierDemande) {
   s.titre('DÉTECTION DE LA LISEUSE');
   if (dossierDemande) {
-    const dossier = resolve(dossierDemande);
+    const dossier = cheminReel(dossierDemande);
     s.trace('scan', `${dossier} (option --kobo)`);
     if (!estUneKobo(dossier)) {
       s.erreur(`${dossier} n’est pas une Kobo (dossier .kobo introuvable).`);
@@ -215,7 +224,7 @@ async function modeInteractif(livres, sortie) {
 }
 
 async function traiterFichier(cheminDonne, sortie) {
-  const chemin = resolve(cheminDonne);
+  const chemin = cheminReel(cheminDonne);
   s.titre('ANALYSE D’UN FICHIER');
   s.trace('fs', chemin);
   if (extname(chemin).toLowerCase() === '.acsm') {
@@ -261,7 +270,7 @@ async function main() {
   }
   reglages.delai = delai;
 
-  const sortie = resolve(options.sortie);
+  const sortie = cheminReel(options.sortie);
   if (options.fichier) return traiterFichier(options.fichier, sortie);
 
   const racine = localiserKobo(options.kobo);
